@@ -1,0 +1,26 @@
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.env
+.env.*
+!.env.example
+*.egg-info/
+dist/
+build/
+.eggs/
+venv/
+.venv/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+*.db
+*.sqlite3
+
+# Cloudflare tunnel credentials
+config/cloudflared/cert.pem
+config/cloudflared/*.json
+config/cloudflared/config.yml
+
+# Gmail OAuth tokens
+config/gmail/

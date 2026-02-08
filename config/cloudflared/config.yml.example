@@ -1,0 +1,12 @@
+# 1. Create a tunnel:  cloudflared tunnel create hookforms
+# 2. Copy the tunnel ID and credentials JSON into this directory
+# 3. Rename this file to config.yml and fill in your values
+# 4. Run:  docker compose --profile tunnel up -d
+
+tunnel: YOUR_TUNNEL_ID
+credentials-file: /etc/cloudflared/credentials.json
+
+ingress:
+  - hostname: hooks.yourdomain.com
+    service: http://api:8000
+  - service: http_status:404
