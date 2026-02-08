@@ -28,9 +28,9 @@ async def create_key(
     await db.commit()
     await db.refresh(db_key)
 
-    resp = ApiKeyCreated.model_validate(db_key)
-    resp.raw_key = raw_key
-    return single_response(resp)
+    resp = ApiKeyResponse.model_validate(db_key)
+    result = ApiKeyCreated(**resp.model_dump(), raw_key=raw_key)
+    return single_response(result)
 
 
 @router.get("/keys", summary="List API keys")

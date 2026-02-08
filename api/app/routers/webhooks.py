@@ -42,16 +42,25 @@ async def receive_webhook(slug: str, request: Request, db: AsyncSession = Depend
     if not inbox:
         raise HTTPException(status_code=404, detail="Inbox not found")
 
-    # Parse body
+    # Parse body — try JSON first, then form-encoded, then raw bytes
     body = None
+    content_type = request.headers.get("content-type", "")
     try:
         body = await request.json()
     except Exception:
-        try:
-            raw = await request.body()
-            body = {"raw": raw.decode("utf-8", errors="replace")}
-        except Exception:
-            pass
+        if "application/x-www-form-urlencoded" in content_type or "multipart/form-data" in content_type:
+            try:
+                form = await request.form()
+                body = {k: v for k, v in form.items() if isinstance(v, str)}
+            except Exception:
+                pass
+        if body is None:
+            try:
+                raw = await request.body()
+                if raw:
+                    body = {"raw": raw.decode("utf-8", errors="replace")}
+            except Exception:
+                pass
 
     # Optional: Cloudflare Turnstile verification
     if inbox.turnstile_secret and body and isinstance(body, dict):
