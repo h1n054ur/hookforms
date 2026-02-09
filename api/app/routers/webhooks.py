@@ -99,13 +99,69 @@ async def receive_webhook(slug: str, request: Request, db: AsyncSession = Depend
     # Optional: forward to another URL
     if inbox.forward_url:
         try:
-            async with safe_http_client(timeout=10, follow_redirects=True) as client:
-                await client.request(
-                    method=request.method,
-                    url=inbox.forward_url,
-                    json=body,
-                    headers={"X-Forwarded-From": f"hookforms/hooks/{slug}"},
-                )
+            is_discord = "discord.com/api/webhooks" in inbox.forward_url
+            is_slack = "hooks.slack.com/" in inbox.forward_url
+
+            if is_discord and body and isinstance(body, dict):
+                # Format as Discord embed
+                fields = [
+                    {
+                        "name": k.replace("_", " ").title(),
+                        "value": str(v)[:1024],
+                        "inline": len(str(v)) < 50,
+                    }
+                    for k, v in body.items()
+                    if v and k != "cf-turnstile-response"
+                ]
+                forward_body = {
+                    "embeds": [
+                        {
+                            "title": f"{inbox.email_subject_prefix or f'[{slug}]'} New Submission",
+                            "color": 0xD4A843,
+                            "fields": fields,
+                            "footer": {"text": f"hookforms/hooks/{slug}"},
+                            "timestamp": __import__("datetime").datetime.now(
+                                __import__("datetime").timezone.utc
+                            ).isoformat(),
+                        }
+                    ]
+                }
+                async with safe_http_client(timeout=10) as client:
+                    await client.post(
+                        inbox.forward_url,
+                        json=forward_body,
+                        headers={"X-Forwarded-From": f"hookforms/hooks/{slug}"},
+                    )
+            elif is_slack and body and isinstance(body, dict):
+                # Format as Slack message
+                lines = [
+                    f"*{k.replace('_', ' ')}:* {v}"
+                    for k, v in body.items()
+                    if v and k != "cf-turnstile-response"
+                ]
+                forward_body = {
+                    "text": f"{inbox.email_subject_prefix or f'[{slug}]'} New Submission",
+                    "blocks": [
+                        {
+                            "type": "section",
+                            "text": {"type": "mrkdwn", "text": "\n".join(lines)},
+                        }
+                    ],
+                }
+                async with safe_http_client(timeout=10) as client:
+                    await client.post(
+                        inbox.forward_url,
+                        json=forward_body,
+                        headers={"X-Forwarded-From": f"hookforms/hooks/{slug}"},
+                    )
+            else:
+                async with safe_http_client(timeout=10, follow_redirects=True) as client:
+                    await client.request(
+                        method=request.method,
+                        url=inbox.forward_url,
+                        json=body,
+                        headers={"X-Forwarded-From": f"hookforms/hooks/{slug}"},
+                    )
         except Exception:
             wh_logger.exception("Forwarding failed for /hooks/%s", slug)
 
