@@ -1,6 +1,10 @@
-# HookForms
+<p align="center">
+  <img src="logo.png" alt="HookForms" width="120">
+</p>
 
-Self-hosted webhook inbox with Gmail email forwarding. Point your HTML forms at a HookForms endpoint and get submissions delivered straight to your inbox.
+<h1 align="center">HookForms</h1>
+
+<p align="center">Self-hosted webhook inbox with Gmail email forwarding. Point your HTML forms at a HookForms endpoint and get submissions delivered straight to your inbox.</p>
 
 ```
 HTML Form  -->  POST /hooks/contact-form  -->  Gmail notification
