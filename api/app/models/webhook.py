@@ -23,6 +23,9 @@ class WebhookInbox(Base, UUIDMixin, TimestampMixin):
     events: Mapped[list["WebhookEvent"]] = relationship(
         back_populates="inbox", cascade="all, delete-orphan"
     )
+    channels: Mapped[list["NotificationChannel"]] = relationship(
+        back_populates="inbox", cascade="all, delete-orphan"
+    )
 
 
 class WebhookEvent(Base, UUIDMixin):
