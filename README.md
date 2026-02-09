@@ -4,10 +4,10 @@
 
 <h1 align="center">HookForms</h1>
 
-<p align="center">Self-hosted webhook inbox with Gmail email forwarding. Point your HTML forms at a HookForms endpoint and get submissions delivered straight to your inbox.</p>
+<p align="center">Self-hosted webhook inbox with multi-channel notifications. Point your HTML forms at a HookForms endpoint and get submissions delivered to email, Discord, Slack, Teams, Telegram, ntfy, or any webhook URL.</p>
 
 ```
-HTML Form  -->  POST /hooks/contact-form  -->  Gmail notification
+HTML Form  -->  POST /hooks/contact-form  -->  Discord, Slack, Email, ...
 ```
 
 > **Want serverless instead?** Check out [hookforms-cloud](https://github.com/h1n054ur/hookforms-cloud) — runs entirely on Cloudflare Workers (D1, KV, Queues). No Docker or VPS needed.
@@ -17,15 +17,17 @@ HTML Form  -->  POST /hooks/contact-form  -->  Gmail notification
 ## Features
 
 - **Webhook inboxes** — create named endpoints that capture any HTTP request
-- **Gmail forwarding** — form submissions forwarded as clean HTML emails via Gmail API
+- **Multi-channel notifications** — route submissions to Discord, Slack, Microsoft Teams, Telegram, ntfy, email, or any webhook URL
+- **Auto-detection** — paste a URL and HookForms detects the channel type automatically
+- **Multiple email providers** — Gmail (OAuth), Resend, SendGrid, or SMTP — configure globally or per-inbox
 - **Per-inbox sender name** — emails show "Acme Corp" instead of a generic name
 - **Turnstile bot protection** — optional Cloudflare Turnstile verification per inbox
-- **Webhook forwarding** — optionally relay events to another URL (Slack, Discord, etc.)
 - **API key auth** — scoped keys for managing inboxes programmatically
 - **Rate limiting** — Redis-backed per-IP rate limiting with lockout protection
 - **Event history** — stored events with configurable retention (default 30 days)
 - **Cloudflare Tunnel** — expose to the internet without opening ports
 - **Docker Compose** — one command to deploy everything
+- **Backward compatible** — legacy `notify_email` and `forward_url` still work
 
 ## Quick Start
 
@@ -82,9 +84,63 @@ curl -X POST https://hooks.yourdomain.com/hooks/contact-form \
   -d '{"name": "Jane", "email": "jane@example.com", "message": "Hello!"}'
 ```
 
-### 3. Get an email
+### 3. Add notification channels
 
-You'll receive a formatted HTML email with all form fields, a reply button, and the inbox slug in the footer. The sender name shows whatever you configured (e.g. "My Website").
+```bash
+# Send to Discord (auto-detected from URL)
+curl -X POST http://localhost:8000/v1/hooks/inboxes/contact-form/channels \
+  -H "X-API-Key: YOUR_ADMIN_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"type": "webhook", "config": {"url": "https://discord.com/api/webhooks/123/abc"}}'
+
+# Send to Slack (auto-detected from URL)
+curl -X POST http://localhost:8000/v1/hooks/inboxes/contact-form/channels \
+  -H "X-API-Key: YOUR_ADMIN_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"type": "webhook", "config": {"url": "https://hooks.slack.com/services/T00/B00/xxx"}}'
+
+# Send email via configured provider
+curl -X POST http://localhost:8000/v1/hooks/inboxes/contact-form/channels \
+  -H "X-API-Key: YOUR_ADMIN_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"type": "email", "config": {"recipients": ["team@example.com"]}}'
+```
+
+When you pass `type: "webhook"`, HookForms auto-detects the specific platform from the URL (Discord, Slack, Teams, etc.) and formats the payload accordingly. Each inbox can have multiple channels — all fire in parallel when a submission comes in.
+
+### 4. Get notified
+
+Submissions are delivered to all configured channels with rich formatting (Discord embeds, Slack blocks, HTML emails, etc.).
+
+> **Legacy mode**: If you set `notify_email` or `forward_url` on the inbox directly (without channels), those still work the same as before.
+
+## Notification Channels
+
+| Channel | Auto-detected from |
+|---------|-------------------|
+| Discord | `discord.com/api/webhooks/` |
+| Slack | `hooks.slack.com/services/` |
+| Microsoft Teams | `*.webhook.office.com/` |
+| Telegram | `api.telegram.org/bot` |
+| ntfy | `ntfy.sh/` |
+| Webhook | Any other URL |
+| Email | Set `type: "email"` with config |
+
+## Email Providers
+
+Configure a global email provider, or override per-inbox:
+
+```bash
+# Set global provider (e.g. Resend)
+curl -X PUT http://localhost:8000/v1/hooks/config/email-provider \
+  -H "X-API-Key: YOUR_ADMIN_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"type": "resend", "config": {"api_key": "re_..."}}'
+```
+
+Supported providers: **Gmail** (OAuth), **Resend**, **SendGrid**, **SMTP** (self-hosted only).
+
+If no provider is configured, HookForms falls back to Gmail via environment variables (the v1 behavior).
 
 ## Gmail Setup
 
@@ -135,21 +191,16 @@ docker compose --profile tunnel up -d
 | `PATCH` | `/v1/hooks/inboxes/{slug}` | Update inbox |
 | `DELETE` | `/v1/hooks/inboxes/{slug}` | Delete inbox + events |
 | `GET` | `/v1/hooks/{slug}/events` | List events for inbox |
+| `POST` | `/v1/hooks/inboxes/{slug}/channels` | Add notification channel |
+| `GET` | `/v1/hooks/inboxes/{slug}/channels` | List channels |
+| `PATCH` | `/v1/hooks/inboxes/{slug}/channels/{id}` | Update channel |
+| `DELETE` | `/v1/hooks/inboxes/{slug}/channels/{id}` | Remove channel |
+| `GET` | `/v1/hooks/config/email-provider` | Get email provider config |
+| `PUT` | `/v1/hooks/config/email-provider` | Set email provider |
+| `DELETE` | `/v1/hooks/config/email-provider` | Remove email provider |
 | `POST` | `/v1/auth/keys` | Create API key (admin) |
 | `GET` | `/v1/auth/keys` | List API keys (admin) |
 | `DELETE` | `/v1/auth/keys/{id}` | Revoke API key (admin) |
-
-### Inbox fields
-
-| Field | Description |
-|-------|-------------|
-| `slug` | URL-safe name used in the webhook URL |
-| `description` | What this inbox is for |
-| `notify_email` | Comma-separated email recipients |
-| `email_subject_prefix` | Prefix for email subjects (e.g. `[Website]`) |
-| `sender_name` | Display name in the From field (e.g. `Acme Corp`) |
-| `forward_url` | Relay events to another URL |
-| `turnstile_secret` | Cloudflare Turnstile secret for bot protection |
 
 ## Architecture
 
@@ -160,12 +211,16 @@ docker compose --profile tunnel up -d
                          └──────────────┘     │ FastAPI │ ──> Redis
                                               └─────────┘
                                                    │
+                                              Dispatcher
+                                             ┌──┬──┬──┐
+                                             │  │  │  │
+                                        Discord Slack Email ...
+                                              └─────────┘
+                                                   │
                                               ┌─────────┐
                                               │ Worker  │ (event cleanup cron)
                                               │   ARQ   │
                                               └─────────┘
-                                                   │
-                                              Gmail API
 ```
 
 ## Configuration

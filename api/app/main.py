@@ -11,7 +11,7 @@ from app.config import settings
 from app.database import engine
 from app.middleware import RateLimitMiddleware, RequestSizeLimitMiddleware
 from app.redis import redis
-from app.routers import auth, webhooks
+from app.routers import auth, channels, webhooks
 
 API_VERSION = "0.1.0"
 
@@ -89,6 +89,7 @@ async def general_exception_handler(request: Request, exc: Exception):
 api_v1 = APIRouter(prefix="/v1")
 api_v1.include_router(auth.router)
 api_v1.include_router(webhooks.router)
+api_v1.include_router(channels.router)
 app.include_router(api_v1)
 
 # Public webhook receiver (unversioned)
