@@ -6,7 +6,9 @@ Self-hosted webhook inbox with Gmail email forwarding. Point your HTML forms at 
 HTML Form  -->  POST /hooks/contact-form  -->  Gmail notification
 ```
 
-> **Want serverless instead?** Check out [hookforms-cloud](https://github.com/h1n054ur/hookforms-cloud) — a one-click deployable version that runs entirely on Cloudflare Workers (D1, KV, Queues). No Docker or VPS needed.
+> **Want serverless instead?** Check out [hookforms-cloud](https://github.com/h1n054ur/hookforms-cloud) — runs entirely on Cloudflare Workers (D1, KV, Queues). No Docker or VPS needed.
+>
+> [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/h1n054ur/hookforms-cloud)
 
 ## Features
 
