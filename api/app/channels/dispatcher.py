@@ -95,6 +95,20 @@ async def dispatch_notifications(
     if tasks:
         await asyncio.gather(*tasks, return_exceptions=True)
     
+    # Rate-limit email notifications (max 10 per inbox per 10 minutes)
+    if email_recipients and email_provider:
+        try:
+            from app.redis import redis as redis_client
+            rate_key = f"channel_email_rate:{inbox.id}"
+            email_count = await redis_client.incr(rate_key)
+            if email_count == 1:
+                await redis_client.expire(rate_key, 600)
+            if email_count > 10:
+                logger.warning("Email rate limit hit for inbox %s (channel dispatcher)", inbox.slug)
+                email_recipients = []  # Skip sending
+        except Exception:
+            logger.warning("Email rate limiter unavailable for inbox %s", inbox.slug)
+    
     # Handle email notifications via resolved provider
     if email_recipients and email_provider:
         await _send_emails(email_provider, email_recipients, ctx, body)

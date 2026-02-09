@@ -35,6 +35,22 @@ VALID_CHANNEL_TYPES = {"email", "discord", "slack", "teams", "telegram", "ntfy",
 VALID_PROVIDER_TYPES = {"gmail", "resend", "sendgrid", "smtp"}
 
 
+def _redact_config(config: dict) -> dict:
+    """Redact sensitive values in channel/provider configs for read responses."""
+    sensitive_keys = {
+        "webhook_url", "url", "bot_url", "api_key", "client_id",
+        "client_secret", "refresh_token", "credentials_path", "token_path",
+        "password",
+    }
+    redacted = {}
+    for key, value in config.items():
+        if key in sensitive_keys and isinstance(value, str) and len(value) > 8:
+            redacted[key] = value[:4] + "***" + value[-4:]
+        else:
+            redacted[key] = value
+    return redacted
+
+
 # ---------------------------------------------------------------------------
 # Helper: resolve inbox by slug
 # ---------------------------------------------------------------------------
@@ -106,7 +122,11 @@ async def list_channels(
         .where(NotificationChannel.inbox_id == inbox.id)
         .order_by(NotificationChannel.created_at.desc())
     )
-    items = [ChannelResponse.model_validate(ch) for ch in result.scalars().all()]
+    items = []
+    for ch in result.scalars().all():
+        resp = ChannelResponse.model_validate(ch)
+        resp.config = _redact_config(resp.config)
+        items.append(resp)
     return {"data": items}
 
 
@@ -207,7 +227,9 @@ async def get_email_provider(
         )
         return {"data": None, "meta": {"fallback": "env_gmail" if has_env_gmail else None}}
 
-    return {"data": EmailProviderResponse.model_validate(provider)}
+    resp = EmailProviderResponse.model_validate(provider)
+    resp.config = _redact_config(resp.config)
+    return {"data": resp}
 
 
 @router.put("/config/email-provider", summary="Set email provider config", tags=["email-providers"])

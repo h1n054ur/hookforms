@@ -63,6 +63,16 @@ class GmailProvider(EmailProvider):
             "sender_email": str,
         }
         """
+        import os
+        
+        allowed_dir = "/app/config/gmail"
+        for key in ("credentials_path", "token_path"):
+            path = os.path.realpath(config[key])
+            if not path.startswith(allowed_dir):
+                raise ValueError(
+                    f"Gmail {key} must be under {allowed_dir}, got: {path}"
+                )
+        
         return cls(
             credentials_path=config["credentials_path"],
             token_path=config["token_path"],
