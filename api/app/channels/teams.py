@@ -4,6 +4,7 @@ import datetime
 import json
 
 from app.channels import ChannelContext, ChannelPayload
+from app.channels.format_value import format_value
 
 
 def format_teams(config: dict, ctx: ChannelContext) -> ChannelPayload:
@@ -22,7 +23,7 @@ def format_teams(config: dict, ctx: ChannelContext) -> ChannelPayload:
     facts = [
         {
             "title": k.replace("_", " ").title(),
-            "value": str(v)[:1024],
+            "value": format_value(v, 1024)[:1024],
         }
         for k, v in ctx.body.items()
         if v and k not in skip_keys

@@ -1,6 +1,7 @@
 """Ntfy channel adapter."""
 
 from app.channels import ChannelContext, ChannelPayload
+from app.channels.format_value import format_value
 
 
 def format_ntfy(config: dict, ctx: ChannelContext) -> ChannelPayload:
@@ -20,7 +21,7 @@ def format_ntfy(config: dict, ctx: ChannelContext) -> ChannelPayload:
     for k, v in ctx.body.items():
         if v and k not in skip_keys:
             label = k.replace("_", " ").title()
-            lines.append(f"{label}: {v}")
+            lines.append(f"{label}: {format_value(v)}")
     
     body_text = "\n".join(lines)
     

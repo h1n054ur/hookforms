@@ -4,6 +4,7 @@ import datetime
 import json
 
 from app.channels import ChannelContext, ChannelPayload
+from app.channels.format_value import format_value
 
 
 def format_discord(config: dict, ctx: ChannelContext) -> ChannelPayload:
@@ -19,15 +20,15 @@ def format_discord(config: dict, ctx: ChannelContext) -> ChannelPayload:
     skip_keys = {"cf-turnstile-response", "raw", "source"}
     
     # Build embed fields
-    fields = [
-        {
-            "name": k.replace("_", " ").title(),
-            "value": str(v)[:1024],
-            "inline": len(str(v)) < 50,
-        }
-        for k, v in ctx.body.items()
-        if v and k not in skip_keys
-    ]
+    fields = []
+    for k, v in ctx.body.items():
+        if v and k not in skip_keys:
+            formatted = format_value(v, 1024)
+            fields.append({
+                "name": k.replace("_", " ").title(),
+                "value": formatted[:1024],
+                "inline": len(formatted) < 50,
+            })
     
     # Build Discord embed
     embed_body = {

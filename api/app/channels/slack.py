@@ -3,6 +3,7 @@
 import json
 
 from app.channels import ChannelContext, ChannelPayload
+from app.channels.format_value import format_value
 
 
 def format_slack(config: dict, ctx: ChannelContext) -> ChannelPayload:
@@ -19,7 +20,7 @@ def format_slack(config: dict, ctx: ChannelContext) -> ChannelPayload:
     
     # Build mrkdwn formatted lines
     lines = [
-        f"*{k.replace('_', ' ')}:* {v}"
+        f"*{k.replace('_', ' ')}:* {format_value(v)}"
         for k, v in ctx.body.items()
         if v and k not in skip_keys
     ]

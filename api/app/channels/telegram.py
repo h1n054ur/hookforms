@@ -3,6 +3,7 @@
 import json
 
 from app.channels import ChannelContext, ChannelPayload
+from app.channels.format_value import format_value
 
 
 def format_telegram(config: dict, ctx: ChannelContext) -> ChannelPayload:
@@ -26,7 +27,7 @@ def format_telegram(config: dict, ctx: ChannelContext) -> ChannelPayload:
         if v and k not in skip_keys:
             label = k.replace("_", " ").title()
             # Escape HTML entities
-            value = str(v).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+            value = format_value(v).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
             lines.append(f"<b>{label}:</b> {value}")
     
     lines.append(f"\n<i>hookforms/hooks/{ctx.slug}</i>")

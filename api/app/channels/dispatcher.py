@@ -7,6 +7,7 @@ from typing import Optional
 
 from app.channels import ChannelContext
 from app.channels.detect import detect_channel_type
+from app.channels.format_value import format_value
 from app.channels.discord import format_discord
 from app.channels.slack import format_slack
 from app.channels.teams import format_teams
@@ -168,7 +169,7 @@ def _build_email_html(slug: str, body: dict, sender_name: str) -> str:
         if key in skip_keys or not val:
             continue
         label = escape(key.replace("_", " ").title())
-        escaped_val = escape(str(val))
+        escaped_val = escape(format_value(val))
         field_rows += (
             f"<tr>"
             f'<td style="padding:10px 14px;font-weight:600;color:#555;'

@@ -1,6 +1,8 @@
 import html
 import logging
 
+from app.channels.format_value import format_value
+
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import select, func, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -137,15 +139,15 @@ async def receive_webhook(slug: str, request: Request, db: AsyncSession = Depend
                     is_slack = "hooks.slack.com/" in inbox.forward_url
 
                     if is_discord and isinstance(body, dict):
-                        fields = [
-                            {
-                                "name": k.replace("_", " ").title(),
-                                "value": str(v)[:1024],
-                                "inline": len(str(v)) < 50,
-                            }
-                            for k, v in body.items()
-                            if v and k != "cf-turnstile-response"
-                        ]
+                        fields = []
+                        for k, v in body.items():
+                            if v and k != "cf-turnstile-response":
+                                formatted = format_value(v, 1024)
+                                fields.append({
+                                    "name": k.replace("_", " ").title(),
+                                    "value": formatted[:1024],
+                                    "inline": len(formatted) < 50,
+                                })
                         forward_body = {
                             "embeds": [
                                 {
@@ -167,7 +169,7 @@ async def receive_webhook(slug: str, request: Request, db: AsyncSession = Depend
                             )
                     elif is_slack and isinstance(body, dict):
                         lines = [
-                            f"*{k.replace('_', ' ')}:* {v}"
+                            f"*{k.replace('_', ' ')}:* {format_value(v)}"
                             for k, v in body.items()
                             if v and k != "cf-turnstile-response"
                         ]
@@ -230,7 +232,7 @@ async def receive_webhook(slug: str, request: Request, db: AsyncSession = Depend
                         if key in skip_keys or not val:
                             continue
                         label = html.escape(key.replace("_", " ").title())
-                        escaped_val = html.escape(str(val))
+                        escaped_val = html.escape(format_value(val))
                         field_rows += (
                             f"<tr>"
                             f'<td style="padding:10px 14px;font-weight:600;color:#555;'
