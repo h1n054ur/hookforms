@@ -64,25 +64,31 @@ class GmailProvider(EmailProvider):
         }
         """
         import os
-        
+
         allowed_dir = "/app/config/gmail"
         for key in ("credentials_path", "token_path"):
             path = os.path.realpath(config[key])
             if not path.startswith(allowed_dir):
-                raise ValueError(
-                    f"Gmail {key} must be under {allowed_dir}, got: {path}"
-                )
-        
+                raise ValueError(f"Gmail {key} must be under {allowed_dir}, got: {path}")
+
         return cls(
             credentials_path=config["credentials_path"],
             token_path=config["token_path"],
             sender_email=config["sender_email"],
         )
 
+    # Instance-level cache for credentials and service
+    _creds_cache = None
+    _service_cache = None
+
     def _get_credentials(self):
-        """Get and refresh Google OAuth2 credentials (synchronous)."""
+        """Get and refresh Google OAuth2 credentials (synchronous), with caching."""
         from google.auth.transport.requests import Request
         from google.oauth2.credentials import Credentials
+
+        # Return cached creds if still valid
+        if self._creds_cache is not None and self._creds_cache.valid:
+            return self._creds_cache
 
         scopes = ["https://www.googleapis.com/auth/gmail.send"]
         token_path = Path(self.token_path)
@@ -93,17 +99,18 @@ class GmailProvider(EmailProvider):
                 "Run 'python scripts/gmail_auth.py' to authorize."
             )
 
-        creds = Credentials.from_authorized_user_file(str(token_path), scopes)
+        if self._creds_cache is None:
+            self._creds_cache = Credentials.from_authorized_user_file(str(token_path), scopes)
 
-        if creds.expired and creds.refresh_token:
+        if self._creds_cache.expired and self._creds_cache.refresh_token:
             logger.info("Refreshing expired Gmail token")
-            creds.refresh(Request())
-            token_path.write_text(creds.to_json())
+            self._creds_cache.refresh(Request())
+            token_path.write_text(self._creds_cache.to_json())
 
-        if not creds.valid:
+        if not self._creds_cache.valid:
             raise RuntimeError("Gmail credentials are invalid. Re-run gmail_auth.py.")
 
-        return creds
+        return self._creds_cache
 
     def _send_sync(
         self,
@@ -112,11 +119,13 @@ class GmailProvider(EmailProvider):
         html_body: str,
         sender_name: Optional[str] = None,
     ) -> None:
-        """Synchronous send via Google API client."""
+        """Synchronous send via Google API client, with cached service."""
         from googleapiclient.discovery import build
 
         creds = self._get_credentials()
-        service = build("gmail", "v1", credentials=creds, cache_discovery=False)
+        if self._service_cache is None:
+            self._service_cache = build("gmail", "v1", credentials=creds, cache_discovery=False)
+        service = self._service_cache
 
         display_name = sender_name or "HookForms"
         msg = MIMEText(html_body, "html")
@@ -125,12 +134,7 @@ class GmailProvider(EmailProvider):
         msg["subject"] = subject
 
         raw = base64.urlsafe_b64encode(msg.as_bytes()).decode()
-        result = (
-            service.users()
-            .messages()
-            .send(userId="me", body={"raw": raw})
-            .execute()
-        )
+        result = service.users().messages().send(userId="me", body={"raw": raw}).execute()
         logger.info("Email sent: id=%s to=%s subject=%s", result.get("id"), to, subject)
 
     async def send_email(
