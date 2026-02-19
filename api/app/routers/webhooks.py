@@ -408,3 +408,28 @@ async def list_events(
     )
     items = [WebhookEventResponse.model_validate(e) for e in events.scalars().all()]
     return paginated_response(items, total, limit, offset)
+
+
+@router.get("/{slug}/events/{event_id}", summary="Get a single webhook event")
+async def get_event(
+    slug: str,
+    event_id: str,
+    db: AsyncSession = Depends(get_db),
+    _key=Depends(require_scope("webhooks")),
+):
+    result = await db.execute(select(WebhookInbox).where(WebhookInbox.slug == slug))
+    inbox = result.scalar_one_or_none()
+    if not inbox:
+        raise HTTPException(status_code=404, detail="Inbox not found")
+
+    event = await db.execute(
+        select(WebhookEvent).where(
+            WebhookEvent.id == event_id,
+            WebhookEvent.inbox_id == inbox.id,
+        )
+    )
+    evt = event.scalar_one_or_none()
+    if not evt:
+        raise HTTPException(status_code=404, detail="Event not found")
+
+    return single_response(WebhookEventResponse.model_validate(evt))
